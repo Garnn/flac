@@ -4,6 +4,7 @@ pipeline {
     stages {
         stage('Collect') {
             steps {
+                git url: 'https://gitlab.xiph.org/steils/flac.git', branch: 'master'
                 stash name: 'flac-source', includes: '**/*'
             }
         }
@@ -22,7 +23,7 @@ pipeline {
                     ./configure
                     make
                 '''
-                stash name: 'flac-build', includes: 'src/libFLAC/.libs/*, src/libFLAC++/.libs/*, src/flac/flac, src/metaflac/metaflac, test/**/*, Makefile'
+                stash name: 'flac-build'
             }
         }
         
@@ -33,10 +34,12 @@ pipeline {
                 }
             }
             steps {
-                unstash 'flac-source'
                 unstash 'flac-build'
                 sh '''
+                    # Usuwanie starych logów
                     rm -f test/*.log
+                    
+                    # Testy
                     make check
                 '''
             }
@@ -44,11 +47,12 @@ pipeline {
                 always {
                     script {
                         def buildNum = env.BUILD_NUMBER
+                        // Zmiana nazw na numerowane buildem
                         sh """
                             for log in test/*.log; do
                                 if [ -f "\$log" ]; then
                                     case "\$log" in
-                                        *_build_*) ;;
+                                        *_build_*) ;;  # skip already renamed logs
                                         *)
                                             base=\$(basename "\$log" .log)
                                             mv "\$log" "test/\${base}_build_${buildNum}.log"
@@ -57,6 +61,7 @@ pipeline {
                                 fi
                             done
                         """
+                        // Archiwizacja
                         archiveArtifacts artifacts: "test/*_build_${buildNum}.log", allowEmptyArchive: true
                     }
                 }
@@ -67,23 +72,23 @@ pipeline {
             agent {
                 docker {
                     image 'flac:builder'
-                    args '-u root'   // Needed for make install
+                    args '-u root'
                 }
             }
             steps {
                 unstash 'flac-build'
-                sh '''
+                sh """
                     make install
                     ldconfig
                     flac --version
-                '''
+                """
             }
         }
         
         stage('Publish') {
             steps {
                 unstash 'flac-build'
-                archiveArtifacts artifacts: 'src/libFLAC/.libs/libFLAC.so*, src/libFLAC++/.libs/libFLAC++.so*, src/flac/flac, src/metaflac/metaflac',
+                archiveArtifacts artifacts: 'src/libFLAC/.libs/libFLAC.so.*.*.*, src/libFLAC++/.libs/libFLAC++.so.*.*.*, src/flac/flac, src/metaflac/metaflac',
                                    fingerprint: true
             }
             post {
