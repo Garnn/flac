@@ -12,13 +12,12 @@ pipeline {
             agent {
                 docker {
                     image 'flac:builder'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock -v ccache:/root/.ccache'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
             steps {
                 unstash 'flac-source'
                 sh '''
-                    export PATH="/usr/lib/ccache:$PATH"
                     ./autogen.sh
                     ./configure
                     make
