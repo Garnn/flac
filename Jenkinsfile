@@ -33,6 +33,7 @@ pipeline {
                 }
             }
             steps {
+                unstash 'flac-source'
                 unstash 'flac-build'
                 sh '''
                     rm -f test/*.log
