@@ -5,7 +5,7 @@ pipeline {
         stage('Collect') {
             steps {
                 stash name: 'flac-source', includes: '**/*'
-                git url: 'https://github.com/Garnn/flac.git', branch: 'master'
+                git url: 'https://gitlab.xiph.org/steils/flac.git', branch: 'master'
             }
         }
 
