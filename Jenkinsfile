@@ -4,8 +4,16 @@ pipeline {
     stages {
         stage('Collect') {
             steps {
-                git url: 'https://gitlab.xiph.org/steils/flac.git', branch: 'master'
                 stash name: 'flac-source', includes: '**/*'
+            }
+        }
+
+        stage('Build-setup') {
+            steps {
+                unstash 'flac-source'
+                sh '''
+                    docker build -t flac:builder -f Dockerfile.builder .
+                '''
             }
         }
 
@@ -24,6 +32,15 @@ pipeline {
                     make
                 '''
                 stash name: 'flac-build'
+            }
+        }
+
+        stage('Test-setup') {
+            steps {
+                unstash 'flac-source'
+                sh '''
+                    docker build -t flac:tester -f Dockerfile.tester .
+                '''
             }
         }
         
