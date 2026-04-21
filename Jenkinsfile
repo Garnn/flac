@@ -4,7 +4,6 @@ pipeline {
     stages {
         stage('Collect') {
             steps {
-                git url: 'https://gitlab.xiph.org/steils/flac.git', branch: 'master'
                 stash name: 'flac-source', includes: '**/*'
             }
         }
@@ -13,17 +12,18 @@ pipeline {
             agent {
                 docker {
                     image 'flac:builder'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock -v ccache:/root/.ccache'
                 }
             }
             steps {
                 unstash 'flac-source'
                 sh '''
+                    export PATH="/usr/lib/ccache:$PATH"
                     ./autogen.sh
                     ./configure
                     make
                 '''
-                stash name: 'flac-build'
+                stash name: 'flac-build', includes: 'src/libFLAC/.libs/*, src/libFLAC++/.libs/*, src/flac/flac, src/metaflac/metaflac, test/**/*'
             }
         }
         
@@ -36,10 +36,7 @@ pipeline {
             steps {
                 unstash 'flac-build'
                 sh '''
-                    # Usuwanie starych logów
                     rm -f test/*.log
-                    
-                    # Testy
                     make check
                 '''
             }
@@ -47,12 +44,11 @@ pipeline {
                 always {
                     script {
                         def buildNum = env.BUILD_NUMBER
-                        // Zmiana nazw na numerowane buildem
                         sh """
                             for log in test/*.log; do
                                 if [ -f "\$log" ]; then
                                     case "\$log" in
-                                        *_build_*) ;;  # skip already renamed logs
+                                        *_build_*) ;;
                                         *)
                                             base=\$(basename "\$log" .log)
                                             mv "\$log" "test/\${base}_build_${buildNum}.log"
@@ -61,7 +57,6 @@ pipeline {
                                 fi
                             done
                         """
-                        // Archiwizacja
                         archiveArtifacts artifacts: "test/*_build_${buildNum}.log", allowEmptyArchive: true
                     }
                 }
@@ -72,23 +67,23 @@ pipeline {
             agent {
                 docker {
                     image 'flac:builder'
-                    args '-u root'
+                    args '-u root'   // Needed for make install
                 }
             }
             steps {
                 unstash 'flac-build'
-                sh """
+                sh '''
                     make install
                     ldconfig
                     flac --version
-                """
+                '''
             }
         }
         
         stage('Publish') {
             steps {
                 unstash 'flac-build'
-                archiveArtifacts artifacts: 'src/libFLAC/.libs/libFLAC.so.*.*.*, src/libFLAC++/.libs/libFLAC++.so.*.*.*, src/flac/flac, src/metaflac/metaflac',
+                archiveArtifacts artifacts: 'src/libFLAC/.libs/libFLAC.so*, src/libFLAC++/.libs/libFLAC++.so*, src/flac/flac, src/metaflac/metaflac',
                                    fingerprint: true
             }
             post {
