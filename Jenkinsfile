@@ -22,7 +22,7 @@ pipeline {
                     ./configure
                     make
                 '''
-                stash name: 'flac-build', includes: 'src/libFLAC/.libs/*, src/libFLAC++/.libs/*, src/flac/flac, src/metaflac/metaflac, test/**/*'
+                stash name: 'flac-build', includes: 'src/libFLAC/.libs/*, src/libFLAC++/.libs/*, src/flac/flac, src/metaflac/metaflac, test/**/*, Makefile'
             }
         }
         
