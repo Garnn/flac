@@ -1,0 +1,9 @@
+FROM flac:builder
+
+# Dodanie użytkownika do testów
+RUN useradd -m -s /bin/bash tester
+USER tester
+
+WORKDIR /home/tester/flac
+
+CMD ["make", "check"]
